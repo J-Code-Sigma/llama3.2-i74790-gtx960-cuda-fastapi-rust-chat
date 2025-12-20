@@ -41,14 +41,19 @@ async fn chat(
     let system_prompt = format!("You are a specialized AI assistant. You stay strictly on these topics: {}. If a user asks about other topics, you MUST state that you do not have access and cannot help with those. NEVER pretend to have information outside these topics. You also DO NOT HAVE ACCESS to user accounts, passwords, or personal data.", topics);
 
     let mut messages = Vec::new();
+    
+    // ALWAYS include the system prompt first
     messages.push(ChatMessage {
         role: "system".to_string(),
         content: system_prompt,
     });
 
+    // Then add conversation history or current prompt
     if let Some(history) = &body.messages {
+        // Add all messages from history (which should NOT include system prompt from client)
         messages.extend(history.iter().cloned());
     } else {
+        // First message - just add the user's prompt
         messages.push(ChatMessage {
             role: "user".to_string(),
             content: body.prompt.clone(),
