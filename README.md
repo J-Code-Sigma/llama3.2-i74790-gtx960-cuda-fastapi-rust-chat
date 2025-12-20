@@ -45,6 +45,22 @@ graph LR
 3.  **Access the API**:
     The main endpoint is exposed via FastAPI on port `8000`.
 
+4.  **Start the Client (Optional)**:
+    Once the backend services are running, you can start the React chat UI:
+    ```bash
+    cd client
+    npm install
+    npm run dev
+    ```
+    The client will be available at `http://localhost:8080` by default.
+    
+    **Note**: Create a `client/.env` file with your server details:
+    ```bash
+    VITE_LLM_SERVER_IP="localhost"
+    VITE_LLM_SERVER_PORT="8000"
+    VITE_LOADING_MESSAGE="Thinking"
+    ```
+
 ## API Usage
 
 ### Chat Endpoint
