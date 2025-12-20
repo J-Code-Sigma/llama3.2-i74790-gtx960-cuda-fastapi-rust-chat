@@ -6,7 +6,7 @@ use chrono::Local;
 use reqwest::Client;
 use tokio::time::{sleep, Duration};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct ChatMessage {
     role: String,
     content: String,
