@@ -35,15 +35,20 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     prompt: str
+    refusal_message: str = None
+
+DEFAULT_REFUSAL = "The prompt contains content that is not allowed. I cannot assist with topics related to restricted content."
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
     logger.info(f"Received prompt: {request.prompt}")
     
+    refusal = request.refusal_message or DEFAULT_REFUSAL
+
     # Layer 1: Keyword/Profanity Filter (Fast)
     if is_harmful(request.prompt):
         logger.warning(f"Blocked by keyword filter: {request.prompt}")
-        raise HTTPException(status_code=400, detail="The prompt contains content that is not allowed.")
+        return {"response": refusal}
     
     # Layer 2: LLM-Guard Scanners (Intent/Injection)
     for scanner in scanners:
@@ -56,7 +61,7 @@ async def chat(request: ChatRequest):
             
         if not is_valid:
             logger.warning(f"Blocked by {scanner.__class__.__name__} (risk: {risk_score}): {request.prompt}")
-            raise HTTPException(status_code=400, detail=f"Request blocked for safety reasons ({scanner.__class__.__name__}).")
+            return {"response": f"{refusal} ({scanner.__class__.__name__})"}
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
