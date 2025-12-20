@@ -20,4 +20,6 @@ echo "Starting llama.cpp server..."
 # --host 0.0.0.0 to allow connections from other containers
 # --port 11434 to keep existing mapping or change as needed
 # -m for the model path
-llama-server --host 0.0.0.0 --port 11434 -m "$MODEL_PATH"
+# -c 2048 Caps the conversation memory (Context) to save RAM (Crucial for Pi!)
+# --cache-ram 0 Disables the massive prompt cache to save RAM
+llama-server --host 0.0.0.0 --port 11434 -m "$MODEL_PATH" -c 2048 --cache-ram 0
