@@ -22,7 +22,7 @@ graph LR
     Client["React Client"] -->|"POST /chat"| FastAPI["FastAPI :8000"]
     FastAPI -->|"Scan (CPU)"| Scanners["LLM Guard"]
     
-    Scanners -->|"Unsafe"| Block["Refusal (from .env)"]
+    Scanners -->|"Unsafe"| Block["Return refusal message (from .env)"]
     Block -->|"Return Message"| Client
     
     Scanners -->|"Safe"| RustAPI["Rust API :8081"]
