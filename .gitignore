@@ -33,6 +33,6 @@ Thumbs.db
 .dockerignore
 
 # Project specific
-**/topics.txt
+**/**/topics.txt
 models 
 node_modules

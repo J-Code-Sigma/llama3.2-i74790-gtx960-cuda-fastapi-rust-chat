@@ -4,14 +4,23 @@ set -e
 MODEL_URL="https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf?download=true"
 MODEL_PATH="/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf"
 
-if [ -f "$MODEL_PATH" ] && [ $(stat -c%s "$MODEL_PATH") -lt 1000000 ]; then
-  echo "Existing model file is too small, likely a failed download. Removing..."
+# Switching to Qwen 2.5 1.5B
+# MODEL_URL="https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
+# MODEL_PATH="/models/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
+
+if [ -f "$MODEL_PATH" ] && [ $(stat -c%s "$MODEL_PATH") -lt 600000000 ]; then
+  echo "Existing model file is too small, likely a failed download. Content start:"
+  head -n 20 "$MODEL_PATH"
+  echo "Removing..."
   rm "$MODEL_PATH"
 fi
 
 if [ ! -f "$MODEL_PATH" ]; then
   echo "Downloading Llama 3.2 1B GGUF model (~700MB)..."
-  curl -L "$MODEL_URL" -o "$MODEL_PATH"
+  if ! curl -f -L "$MODEL_URL" -o "$MODEL_PATH"; then
+    echo "Download failed!"
+    exit 1
+  fi
 else
   echo "Model already exists and seems valid. Skipping download."
 fi

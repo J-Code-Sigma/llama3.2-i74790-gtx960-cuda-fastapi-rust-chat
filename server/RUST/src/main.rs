@@ -38,7 +38,14 @@ async fn chat(
     let llammacpp_model = std::env::var("LLAMACPP_MODEL").unwrap_or_else(|_| "llama3.2".to_string());
 
     let topics = std::fs::read_to_string("topics.txt").unwrap_or_else(|_| "General assistance".to_string());
-    let system_prompt = format!("You are a specialized AI assistant. You stay strictly on these topics: {}. If a user asks about other topics, you MUST state that you do not have access and cannot help with those. NEVER pretend to have information outside these topics. You also DO NOT HAVE ACCESS to user accounts, passwords, or personal data.", topics);
+
+    let system_prompt;
+    if(topics.is_empty()) {
+        system_prompt = "You are a specialized AI assistant. You stay strictly on these topics: General assistance. If a user asks about other topics, you MUST state that you do not have access and cannot help with those. You also DO NOT HAVE ACCESS to user accounts, passwords, or personal data.".to_string();
+    }else{
+        system_prompt = format!("You are a specialized AI assistant. You stay strictly on these topics: {}. If a user asks about other topics, you MUST state that you do not have access and cannot help with those. NEVER pretend to have information outside these topics. You also DO NOT HAVE ACCESS to user accounts, passwords, or personal data.", topics);
+    }
+    
 
     let mut messages = Vec::new();
     

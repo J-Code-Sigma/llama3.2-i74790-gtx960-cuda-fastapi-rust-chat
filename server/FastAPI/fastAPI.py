@@ -16,13 +16,18 @@ RUST_HOST = os.getenv("LLAMACPP_HOST", "http://rust-api:8080")  # Rust service U
 from filter import is_harmful
 from llm_guard.input_scanners import PromptInjection, Toxicity
 
-# Initialize scanners (this might take some time on the first run as models download)
-# We handle initialization globally to avoid reloading models on every request.
-try:
-    scanners = [PromptInjection(), Toxicity()]
-except Exception as e:
-    logger.error(f"Failed to initialize LLM-Guard scanners: {e}")
-    scanners = []
+# Check if scanners are enabled (default: False to speed up init)
+ENABLE_SCANNERS = os.getenv("ENABLE_SCANNERS", "false").lower() == "true"
+
+scanners = []
+if ENABLE_SCANNERS:
+    try:
+        logger.info("Initializing LLM-Guard scanners...")
+        scanners = [PromptInjection(), Toxicity()]
+    except Exception as e:
+        logger.error(f"Failed to initialize LLM-Guard scanners: {e}")
+else:
+    logger.info("Scanners disabled via ENABLE_SCANNERS=false")
 
 app = FastAPI()
 
@@ -53,17 +58,18 @@ async def chat(request: ChatRequest):
         return {"response": refusal}
     
     # Layer 2: LLM-Guard Scanners (Intent/Injection)
-    for scanner in scanners:
-        try:
-            _, is_valid, risk_score = scanner.scan(request.prompt)
-        except Exception as e:
-            logger.error(f"Error during scanning with {scanner.__class__.__name__}: {e}")
-            # In case of other errors in scanner, we let it pass to the next layer
-            continue
-            
-        if not is_valid:
-            logger.warning(f"Blocked by {scanner.__class__.__name__} (risk: {risk_score}): {request.prompt}")
-            return {"response": f"{refusal} ({scanner.__class__.__name__})"}
+    if ENABLE_SCANNERS:
+        for scanner in scanners:
+            try:
+                _, is_valid, risk_score = scanner.scan(request.prompt)
+            except Exception as e:
+                logger.error(f"Error during scanning with {scanner.__class__.__name__}: {e}")
+                # In case of other errors in scanner, we let it pass to the next layer
+                continue
+                
+            if not is_valid:
+                logger.warning(f"Blocked by {scanner.__class__.__name__} (risk: {risk_score}): {request.prompt}")
+                return {"response": f"{refusal} ({scanner.__class__.__name__})"}
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
