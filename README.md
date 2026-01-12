@@ -23,7 +23,7 @@ graph LR
     FastAPI -->|"Scan (CPU)"| Scanners["LLM Guard"]
     
     Scanners -->|"Unsafe"| Block["Refusal (from .env)"]
-    Block --> Client
+    Block -->|"Return Message"| Client
     
     Scanners -->|"Safe"| RustAPI["Rust API :8081"]
     RustAPI -->|"Inject System Prompt"| LlamaCPP["llama.cpp :11434"]
