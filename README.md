@@ -1,137 +1,74 @@
-# llama.cpp FastAPI Rust Chat
+# GPU-Accelerated LLM Chat Stack (FastAPI + Rust + llama.cpp)
 
-A multi-tiered chat application integrating **FastAPI**, **Rust (Actix-Web)**, and **llama.cpp**. Optimized for high-performance LLM inference on **ARM64 (Raspberry Pi)** and other Linux architectures using native compilation.
+A high-performance, containerized chat application optimized for **x86_64 Linux** with **NVIDIA GPU Acceleration**.
 
-## Project Architecture
+This project orchestrates a secure, filtered chat interface using a microservices architecture. It is tuned specifically for older consumer GPUs (e.g., **GTX 960 2GB**) by offloading safety scanners to the CPU while dedicating VRAM to the chat model.
 
-This project uses a microservices architecture to ensure security, request serialization, and efficient inference:
+## key Features
 
-1.  **FastAPI (Python)**: Acts as the public-facing API gateway. It handles CORS, input validation, and multi-layer content filtering (Profanity & LLM-Guard).
-2.  **Rust API (Actix-Web)**: A high-performance middleware that manages request queuing via a `Semaphore(1)`—ensuring the LLM isn't overwhelmed—and injects system-level instructions.
-3.  **llama.cpp**: The inference engine, built natively from source for maximum hardware optimization.
+-   **Hybrid Compute**: Runs the LLM on GPU (CUDA) and safety scanners on CPU to maximize limited VRAM.
+-   **Security**: Multi-layer content filtering (Profanity filter, Prompt Injection detection, Toxicity analysis).
+-   **Performance**: Native `llama.cpp` server compiled with CUDA support.
+-   **Control**: Soft guardrails via a Rust middleware that injects system prompts from a `topics.txt` allowlist.
+
+## Architecture
+
+1.  **FastAPI (Python)**: Public Gateway. Handles auth, CORS, and runs CPU-based safety scanners (`llm-guard`).
+2.  **Rust API (Actix-Web)**: Middleware. Manages request limits and system prompt injection.
+3.  **llama.cpp (C++)**: Inference Engine. Runs the GGUF model on the GPU.
 
 ```mermaid
 graph LR
-    Client[Client] -->|POST /chat| FastAPI[FastAPI :8000]
-    FastAPI -->|POST /v1/chat| RustAPI[Rust API :8080]
-    RustAPI -->|POST /v1/chat/completions| LlamaCPP[llama.cpp :11434]
-    
-    subgraph Docker Network
-        FastAPI
-        RustAPI
-        LlamaCPP
-    end
+    Client[React Client] -->|POST /chat| FastAPI[FastAPI :8000]
+    FastAPI -->|Scan (CPU)| Scanners[LLM Guard]
+    FastAPI -->|Safe?| RustAPI[Rust API :8081]
+    RustAPI -->|Inject System Prompt| LlamaCPP[llama.cpp :11434]
+    LlamaCPP -->|Inference (GPU)| Model[Llama 3.2 1B]
 ```
 
-## Prerequisites
+## Hardware Requirements
 
-- [Docker](https://www.docker.com/)
-- [Docker Compose](https://docs.docker.com/compose/)
+-   **OS**: Linux (x86_64) with NVIDIA Drivers installed.
+-   **GPU**: NVIDIA GPU (Maxwell or newer supported). Tested on **GTX 960 (2GB VRAM)**.
+-   **RAM**: 8GB+ System RAM recommended.
+-   **Storage**: ~2GB for Docker images and models.
 
 ## Getting Started
 
-1.  **Clone the repository**:
-    ```bash
-    git clone <repository-url>
-    cd llamacpp-fastAPI-rust-chat
-    ```
+### 1. Prerequisites
+-   [Docker](https://www.docker.com/)
+-   [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (Crucial for GPU access)
 
-2.  **Start the services**:
-    ```bash
-    docker compose up --build
-    ```
-    *Note: The first run will take several minutes as it compiles `llama.cpp` natively for your CPU and downloads the Llama 3.2 1B GGUF model (~700MB).*
-
-3.  **Access the API**:
-    The main endpoint is exposed via FastAPI on port `8000`.
-
-4.  **Start the Client (Optional)**:
-    Once the backend services are running, you can start the React chat UI:
-    ```bash
-    cd client
-    npm install
-    npm run dev
-    ```
-    The client will be available at `http://localhost:8080` by default.
-    
-    **Note**: Create a `client/.env` file with your server details:
-    ```bash
-    VITE_LLM_SERVER_IP="localhost"
-    VITE_LLM_SERVER_PORT="8000"
-    VITE_LOADING_MESSAGE="Thinking"
-    ```
-
-## API Usage
-
-### Chat Endpoint
-**URL**: `http://localhost:8000/chat`
-**Method**: `POST`
-
-**Request Body**:
-```json
-{
-  "prompt": "Explain the concept of entropy.",
-  "refusal_message": "Optional custom block message",
-  "messages": []
-}
+### 2. Run with Docker Compose
+```bash
+# Start all services
+# The first run will download the Llama 3.2 1B model (~700MB) automatically.
+sudo docker-compose up -d --build
 ```
 
+### 3. Verify GPU Usage
+Check the `llama-cpp` logs to ensure layer offloading is working:
+```bash
+sudo docker-compose logs -f llama-cpp
+# Look for: "llm_load_tensors: offloading 123 layers to GPU"
+```
 
+## Configuration
 
-## Topic Control via `RUST/topics.txt` (Important)
+### Environment Variables (`docker-compose.yml`)
 
-This project includes **explicit topic-level control** over what the LLM is allowed to discuss.
+| Variable | Service | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `ENABLE_SCANNERS` | `fastapi` | `true` | Enable/Disable CPU-heavy safety scanners. Set to `false` for instant startup. |
+| `LLAMACPP_HOST` | `fastapi` | `http://rust-api:8080` | Internal URL for the Rust middleware. |
 
-### How It Works
+### Topic Control
+Edit `server/RUST/topics.txt` to change the allowed conversation topics dynamically. The Rust middleware reads this file on every request, so updates are instant (no restart required).
 
-- **File:** `server/RUST/topics.txt`
-- **Purpose:** Define an **allowlist of topics** the model is permitted to respond to
+## Troubleshooting
 
-At startup, the Rust middleware:
-1. Reads `topics.txt`
-2. Injects its contents into the **system prompt**
-3. Instructs the model to **only respond to those topics**
-
-**Instruction enforced at inference time:**
-
-> “You may only answer questions related to the following topics.  \
-> If a user asks about anything else, you must state that you do not have access to that information.”
-
-### Why This Matters
-
-- Prevents topic drift and hallucination
-- Enables tightly-scoped deployments (internal tools, demos, kiosks)
-- Provides **soft guardrails** without blocking requests outright
-- Works alongside FastAPI-level moderation instead of replacing it
-- Can be modified instantly without retraining or fine-tuning
-
-This design keeps topic control **transparent, auditable, and configuration-driven**.
-
-
-
-## Content Moderation & Refusal Logic
-
-This project implements a multi-layered safety and moderation system. Refusals happen at two distinct stages:
-
-### 1. Hard Refusal (Pre-Inference)
-Handled by **FastAPI**, if a prompt is blocked here, it **never reaches the LLM**. The API returns a `200 OK` with a JSON response containing a "refusal message".
-
-- **Default Message**: "The prompt contains content that is not allowed. I cannot assist with topics related to restricted content."
-- **Customization**: The client can send a `refusal_message` in the request body to override this default.
-- **Triggers**:
-    - **Keyword Filter**: Checks against a list of profanity and blocked words.
-    - **LLM-Guard**: Uses specialized mini-models (DeBERTa) to detect Prompt Injection and Toxicity.
-
-### 2. Soft Refusal (In-Inference)
-Handled by the **LLM** itself via instructions injected by the **Rust Middleware**.
-
-- **Instruction Source**: The `server/RUSTtopics.txt` file.
-- **Mechanism**: The Rust service reads `topics.txt` and wraps it into a **System Prompt**. It instructs the AI: *"You stay strictly on these topics: [topics.txt contents]. If a user asks about other topics, you MUST state that you do not have access."*
-- **Effect**: The AI will generate a polite refusal message in its own voice if the user tries to talk about off-limit subjects.
-
-## Optimization Notes (Raspberry Pi 5)
-- **Native Build**: The `llama-server` is compiled from source inside the container to use ARM-specific instructions (NEON/FMA).
-- **RAM Management**: Context is limited to `2048` tokens (`-c 2048`) and the prompt cache is disabled (`--cache-ram 0`) to prevent OOM (Out of Memory) crashes while running alongside Python security models.
+-   **"CUDA error: the resource allocation failed"**: You are running out of VRAM. Ensure `ENABLE_SCANNERS` is `false` (to save system RAM/VRAM overhead) or enable scanners but ensure they run on CPU (default config).
+-   **Model Download Failed**: If logs show garbage output, the download might have been corrupted. Delete `models/*.gguf` and restart.
 
 ## License
 [MIT](LICENSE)
