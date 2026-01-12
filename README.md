@@ -21,7 +21,11 @@ This project orchestrates a secure, filtered chat interface using a microservice
 graph LR
     Client["React Client"] -->|"POST /chat"| FastAPI["FastAPI :8000"]
     FastAPI -->|"Scan (CPU)"| Scanners["LLM Guard"]
-    FastAPI -->|"Safe?"| RustAPI["Rust API :8081"]
+    
+    Scanners -->|"Unsafe"| Block["Refusal (from .env)"]
+    Block --> Client
+    
+    Scanners -->|"Safe"| RustAPI["Rust API :8081"]
     RustAPI -->|"Inject System Prompt"| LlamaCPP["llama.cpp :11434"]
     LlamaCPP -->|"Inference (GPU)"| Model["Llama 3.2 1B"]
 ```
