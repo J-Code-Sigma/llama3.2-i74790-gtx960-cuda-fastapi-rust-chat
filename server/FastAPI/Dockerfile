@@ -2,9 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY *.py /app/
+RUN pip install --default-timeout=3000 --no-cache-dir fastapi uvicorn httpx better-profanity "llm-guard[all]"
 
-RUN pip install --no-cache-dir fastapi uvicorn httpx better-profanity "llm-guard[all]"
+COPY *.py /app/
 
 EXPOSE 8000
 

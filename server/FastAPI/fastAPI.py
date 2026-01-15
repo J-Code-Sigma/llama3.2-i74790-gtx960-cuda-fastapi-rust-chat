@@ -8,7 +8,12 @@ import os
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger("fastapi_logger")
 
 RUST_HOST = os.getenv("LLAMACPP_HOST", "http://rust-api:8080")  # Rust service URL

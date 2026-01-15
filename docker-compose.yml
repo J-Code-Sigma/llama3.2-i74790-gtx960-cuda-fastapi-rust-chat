@@ -15,6 +15,7 @@ services:
     environment:
       - LLAMACPP_HOST=http://rust-api:8080
       - ENABLE_SCANNERS=true
+      - PYTHONUNBUFFERED=1
     depends_on:
       - rust-api
     networks:
