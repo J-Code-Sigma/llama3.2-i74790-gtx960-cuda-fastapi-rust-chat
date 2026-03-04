@@ -40,7 +40,7 @@ echo "Starting llama.cpp server..."
 # -ngl: Number of GPU layers. 0 for CPU, 99 for everything to GPU.
 
 # Default (Optimized for GTX 960 2GB)
-llama-server --host 0.0.0.0 --port 11434 -m "$MODEL_PATH" -c 2048 --cache-ram 0
+llama-server --host 0.0.0.0 --port 11434 -m "$MODEL_PATH" -c 2048 -ngl 32 --cache-ram 0
 
 # High-Performance (Optimized for RTX 3060+ 12GB+)
 # llama-server --host 0.0.0.0 --port 11434 -m "$MODEL_PATH" -c 8192 -ngl 99 -b 512 -ub 512 --cache-ram 0
